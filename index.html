@@ -50,8 +50,8 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:right;
 .seg{display:flex;gap:6px;flex-wrap:wrap}.seg button{flex:1 1 40%;padding:10px 4px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--tx);font:inherit;font-weight:600}
 .seg button.on{border-color:var(--ac);box-shadow:inset 0 0 0 2px var(--ac)}
 .thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.th{position:relative}
-.thumbs img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--bd);display:block;background:var(--grb)}
-.pdfbox{width:72px;height:72px;border-radius:8px;border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:28px;background:var(--grb)}
+.thumbs img{width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--bd);display:block;background:var(--grb)}
+.pdfbox{width:96px;height:96px;border-radius:8px;border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:28px;background:var(--grb)}
 .th i{position:absolute;top:-6px;right:-6px;background:var(--wa);color:#fff;border-radius:99px;width:22px;height:22px;font-style:normal;text-align:center;line-height:22px;font-size:14px}
 .gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}.gi img{width:100%;height:120px;object-fit:cover;border-radius:10px;border:1px solid var(--bd);display:block;background:var(--grb)}.gi .meta{margin-top:2px}
 h2.sec{font-size:16px;margin:6px 0 8px}
@@ -60,7 +60,7 @@ h2.sec{font-size:16px;margin:6px 0 8px}
 .idea input[type=checkbox]{width:22px;height:22px;flex:none}.idea.d span{text-decoration:line-through;color:var(--mu)}.idea span{flex:1;word-break:break-word}
 .idea button{border:0;background:none;color:var(--mu);font-size:20px}
 .lb{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:40;align-items:center;justify-content:center;flex-direction:column;padding:12px}
-.lb img{max-width:100%;max-height:88vh;object-fit:contain}.lbc{color:#fff;text-align:center}
+.lb img{max-width:100%;max-height:88vh;object-fit:contain;touch-action:pinch-zoom}.lbc{color:#fff;text-align:center}
 .lbx{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));right:14px;color:#fff;font-size:30px;padding:6px 12px}
 .toast{position:fixed;left:12px;right:12px;bottom:calc(80px + env(safe-area-inset-bottom,0px));background:#222;color:#fff;border-radius:10px;padding:12px;font-size:14px;z-index:50;display:none;text-align:center}.toast.on{display:block}
 </style></head>
@@ -78,7 +78,7 @@ h2.sec{font-size:16px;margin:6px 0 8px}
 <script>
 "use strict";
 // ← KROK 3 instrukcji: po wdrożeniu Apps Script wklej tu adres wdrożenia (kończy się na /exec).
-var API_URL = "https://script.google.com/macros/s/AKfycbycL2BxQ_Qzp9JvSUgZrIAlqoA2RU2E6bcdHqp1NEicTPGR4U8wS7hFrNpht75lPw--/exec";
+var API_URL = "";
 
 var PAY=[["karta","Karta","b-karta"],["gotówka","Gotówka","b-got"],["przelew","Przelew","b-karta"],["do rozliczenia","Do rozliczenia","b-do"]];
 var STAGES=["Formalności","Robocizna","Materiały","Okna, rolety i drzwi","Elektryka","Hydraulika","Materiały stan deweloperski","Narzędzia","Rekuperacja","Pompa","Teren","Droga","Inne"];
@@ -131,7 +131,7 @@ function errText(e){
   if(c==="set_password")return "W Code.gs nadal jest hasło domyślne – ustaw własne i wdróż nową wersję.";
   if(c==="title_required")return "Wpisz tytuł wydatku.";
   if(c==="file_too_large")return "Plik jest za duży.";
-  return "Błąd: "+(c||"nieznany");
+  return "Błąd serwera: "+(c||"nieznany")+" – zrób zrzut ekranu i wyślij.";
 }
 
 /* ---------- komunikacja z Apps Script ---------- */
@@ -294,7 +294,7 @@ function viewList(){
   if(!l.length)return h+'<div class="empty">Brak wydatków'+(S.ex.length?" dla tych filtrów":". Dodaj pierwszy przyciskiem poniżej")+".</div>";
   if(S.filter!=="wszystkie"||S.sf||S.mf||q)h+='<div class="meta" style="margin-bottom:8px">Suma widocznych: <b>'+fmt(sum(l))+"</b> ("+l.length+" poz.)</div>";
   return h+l.map(function(e){var p=pinfo(e.pay);
-    return '<div class="row"><div class="top" data-a="edit" data-v="'+esc(e.id)+'" style="cursor:pointer"><div><div class="ttl">'+esc(e.title)+'</div><div class="meta">'+esc(e.date||"")+" · "+esc(e.stage||"")+(e.unit!=null&&e.unit!==""?" · "+(e.qty==null?1:e.qty)+" × "+fmt(e.unit):"")+(e.note?" · "+esc(e.note):"")+(e.receipts&&e.receipts.length?" · 📎"+e.receipts.length:"")+'</div></div><div style="text-align:right"><div class="amt">'+fmt(e.amount)+'</div><span class="badge '+p[2]+'">'+p[1]+"</span></div></div>"+
+    return '<div class="row"><div class="top" data-a="edit" data-v="'+esc(e.id)+'" style="cursor:pointer"><div><div class="ttl">'+esc(e.title)+'</div><div class="meta">'+esc(e.date||"")+" · "+esc(e.stage||"")+(e.unit!=null&&e.unit!==""?" · "+(e.qty==null?1:e.qty)+" × "+fmt(e.unit):"")+(e.note?" · "+esc(e.note):"")+(e.receipts&&e.receipts.length?' · <span data-a="open" data-v="'+esc(e.receipts[0].id)+'" style="color:var(--ac);font-weight:700;padding:6px 4px">📎 '+e.receipts.length+" – pokaż</span>":"")+'</div></div><div style="text-align:right"><div class="amt">'+fmt(e.amount)+'</div><span class="badge '+p[2]+'">'+p[1]+"</span></div></div>"+
     (e.pay==="do rozliczenia"?'<div class="acts"><button class="btn" data-a="settle" data-v="'+esc(e.id)+'|karta">Zapłacono kartą</button><button class="btn" data-a="settle" data-v="'+esc(e.id)+'|gotówka">Zapłacono gotówką</button><button class="btn" data-a="settle" data-v="'+esc(e.id)+'|przelew">Zapłacono przelewem</button></div>':"")+"</div>"}).join("");
 }
 function viewSum(){
@@ -446,7 +446,7 @@ document.addEventListener("click",async function(ev){
     if(!S.delArm){readForm();S.delArm=true;drawForm();return}
     var did=S.draft.id;
     var r=await write("deleteExpense",{id:did},function(){S.ex=S.ex.filter(function(x){return x.id!==did})});
-    if(!r.ok){S.ferr=r.err;S.delArm=false;drawForm();return}
+    if(!r.ok){S.ferr=r.err;S.delArm=false;drawForm();toast(r.err);return}
     closeForm();
   }
   else if(a==="addidea"){
