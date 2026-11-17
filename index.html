@@ -62,6 +62,7 @@ h2.sec{font-size:16px;margin:6px 0 8px}
 .lb{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:40;align-items:center;justify-content:center;flex-direction:column;padding:12px}
 .lb img{max-width:100%;max-height:88vh;object-fit:contain;touch-action:pinch-zoom}.lbc{color:#fff;text-align:center}
 .lbx{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));right:14px;color:#fff;font-size:30px;padding:6px 12px}
+.dlg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;align-items:center;justify-content:center;padding:20px}.dlg .box{background:var(--bg);color:var(--tx);border-radius:16px;padding:20px;max-width:360px;width:100%}.dlg .q{font-size:17px;font-weight:700;margin-bottom:6px}.dlg .s{color:var(--mu);font-size:14px;margin-bottom:16px}.dlg .acts{display:flex;gap:10px}.dlg .acts .btn{flex:1;padding:14px 8px;font-size:16px;text-align:center}.btn.yes{background:var(--wa);border-color:var(--wa);color:#fff}
 .toast{position:fixed;left:12px;right:12px;bottom:calc(80px + env(safe-area-inset-bottom,0px));background:#222;color:#fff;border-radius:10px;padding:12px;font-size:14px;z-index:50;display:none;text-align:center}.toast.on{display:block}
 </style></head>
 <body>
@@ -74,6 +75,7 @@ h2.sec{font-size:16px;margin:6px 0 8px}
 <button class="fab" id="fab" data-a="new">+ Dodaj wydatek</button>
 <div id="modal"></div>
 <div id="lb" class="lb" style="display:none"></div>
+<div id="dlg" class="dlg" style="display:none"></div>
 <div id="toast" class="toast"></div>
 <script>
 "use strict";
@@ -82,7 +84,7 @@ var API_URL = "https://script.google.com/macros/s/AKfycbycL2BxQ_Qzp9JvSUgZrIAlqo
 
 var PAY=[["karta","Karta","b-karta"],["gotówka","Gotówka","b-got"],["przelew","Przelew","b-karta"],["do rozliczenia","Do rozliczenia","b-do"]];
 var STAGES=["Formalności","Robocizna","Materiały","Okna, rolety i drzwi","Elektryka","Hydraulika","Materiały stan deweloperski","Narzędzia","Rekuperacja","Pompa","Teren","Droga","Inne"];
-var S={tab:"w",filter:"wszystkie",q:"",ex:[],ideas:[],gal:[],sf:"",mf:"",ready:false,draft:null,busy:0,rev:-1,online:true,syncing:false,again:false,last:null,loginErr:"",ferr:"",delArm:false,dgArm:"",up:false,gup:false,err:"",saving:false};
+var S={wv:0,tab:"w",filter:"wszystkie",q:"",ex:[],ideas:[],gal:[],sf:"",mf:"",ready:false,draft:null,busy:0,rev:-1,online:true,syncing:false,again:false,last:null,loginErr:"",ferr:"",delArm:false,dgArm:"",up:false,gup:false,err:"",saving:false};
 var CFG={url:"",pw:""};
 
 /* ---------- pamięć lokalna (z zabezpieczeniem na brak dostępu) ---------- */
@@ -101,6 +103,9 @@ function pinfo(p){return PAY.filter(function(x){return x[0]===p})[0]||["","Brak 
 function sum(a){return a.reduce(function(t,e){return t+(Number(e.amount)||0)},0)}
 function stages(){var s=STAGES.slice();S.ex.forEach(function(e){if(e.stage&&s.indexOf(e.stage)<0)s.push(e.stage)});return s}
 function newId(){return "x"+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+var ASK=null;
+function ask(q,sub,fn){ASK=fn;var d=document.getElementById("dlg");d.innerHTML='<div class="box"><div class="q">'+esc(q)+'</div><div class="s">'+esc(sub||"")+'</div><div class="acts"><button class="btn" data-a="no">NIE</button><button class="btn yes" data-a="yes">TAK, usuń</button></div></div>';d.style.display="flex"}
+function askClose(){ASK=null;var d=document.getElementById("dlg");d.style.display="none";d.innerHTML=""}
 var tt;function toast(m){var el=document.getElementById("toast");el.textContent=m;el.className="toast on";clearTimeout(tt);tt=setTimeout(function(){el.className="toast"},5000)}
 
 /* ---------- konfiguracja i logowanie ---------- */
@@ -159,20 +164,21 @@ function applyList(j){
 async function sync(force){
   if(!CFG.url||!CFG.pw)return;
   if(S.syncing||S.busy){if(force)S.again=true;return}
-  S.syncing=true;
+  S.syncing=true;var wv=S.wv;
   try{
     if(!force&&S.ready&&S.rev>=0){var r=await api("rev");if(r.rev===S.rev){S.last=Date.now();return}}
-    applyList(await api("list"));
+    var L=await api("list");
+    if(S.busy||wv!==S.wv){S.again=true}else{applyList(L)}
   }catch(e){if(e&&e.code&&e.code!=="network"&&e.code!=="auth")toast(errText(e))}
   finally{S.syncing=false;renderStatus();if(S.again){S.again=false;sync(true)}}
 }
 function snap(){return{ex:S.ex,ideas:S.ideas,gal:S.gal}}
 async function write(action,data,opt){
   var sn=snap(),res={ok:true};
-  S.busy++;
+  S.busy++;S.wv=(S.wv||0)+1;
   try{if(opt){opt();render()}await api(action,data)}
   catch(e){res={ok:false,err:errText(e),code:e&&e.code};if(opt){S.ex=sn.ex;S.ideas=sn.ideas;S.gal=sn.gal;render()}}
-  finally{S.busy--}
+  finally{S.busy--;S.wv++}
   renderStatus();sync(true);
   return res;
 }
@@ -310,7 +316,7 @@ function viewSum(){
 function galleryHtml(){
   var g=S.gal.slice().sort(function(a,b){return(b.ts||0)-(a.ts||0)});
   var h='<h2 class="sec">Zdjęcia</h2>';
-  if(g.length)h+='<div class="gal">'+g.map(function(x){return'<div class="gi"><div data-a="open" data-v="'+esc(x.file)+'" style="cursor:pointer">'+imgTag(x.thumb||x.file)+'</div><div class="meta">'+esc(x.title)+' <button data-a="dg" data-v="'+esc(x.id)+'" style="border:0;background:none;color:var(--mu);font-size:16px" aria-label="Usuń zdjęcie">'+(S.dgArm===x.id?"Usuń?":"×")+"</button></div></div>"}).join("")+"</div>";
+  if(g.length)h+='<div class="gal">'+g.map(function(x){return'<div class="gi"><div data-a="open" data-v="'+esc(x.file)+'" style="cursor:pointer">'+imgTag(x.thumb||x.file)+'</div><div class="meta">'+esc(x.title)+' <button data-a="dg" data-v="'+esc(x.id)+'" style="border:0;background:none;color:var(--mu);font-size:16px" aria-label="Usuń zdjęcie">'+"×"+"</button></div></div>"}).join("")+"</div>";
   else h+='<div class="meta">Brak zdjęć.</div>';
   h+='<div><label class="btn" style="position:relative;overflow:hidden;margin:8px 0 14px">+ Dodaj zdjęcie<input type="file" id="g-file" accept="image/*" multiple style="position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:0;padding:0;border:0"></label>'+(S.gup?'<span class="meta"> Wysyłanie…</span>':"")+"</div>";
   return h+'<h2 class="sec">Pomysły i rzeczy do ogarnięcia</h2>';
@@ -344,7 +350,7 @@ function drawForm(){
   (S.up?'<div class="meta" style="margin-top:6px">Wysyłanie…</div>':"")+(S.err?'<div style="color:var(--wa);font-size:14px;margin-top:6px">'+esc(S.err)+"</div>":"")+
   '<div class="thumbs">'+d.receipts.map(function(r,i){return'<div class="th"><div data-a="open" data-v="'+esc(r.id)+'" style="cursor:pointer">'+(r.thumb?imgTag(r.thumb):'<div class="pdfbox">📄</div>')+'</div><i data-a="rm" data-v="'+i+'">×</i></div>'}).join("")+"</div>"+
   (S.ferr?'<div style="color:var(--wa);font-size:14px;margin-top:10px">'+esc(S.ferr)+"</div>":"")+
-  '<div class="acts" style="margin-top:16px"><button class="btn pri" data-a="save"'+(S.saving||S.up?" disabled":"")+">"+(S.saving?"Zapisuję…":"Zapisz")+'</button><button class="btn" data-a="close">Anuluj</button>'+(d.id?'<button class="btn del" data-a="del">'+(S.delArm?"Na pewno usunąć?":"Usuń")+"</button>":"")+"</div></div></div>";
+  '<div class="acts" style="margin-top:16px"><button class="btn pri" data-a="save"'+(S.saving||S.up?" disabled":"")+">"+(S.saving?"Zapisuję…":"Zapisz")+'</button><button class="btn" data-a="close">Anuluj</button>'+(d.id?'<button class="btn del" data-a="del">'+"Usuń"+"</button>":"")+"</div></div></div>";
   var nw=m.querySelector(".sheet");if(nw)nw.scrollTop=st;
   hydrate();
 }
@@ -443,24 +449,27 @@ document.addEventListener("click",async function(ev){
   else if(a==="save"){save()}
   else if(a==="close"){if(S.draft){closeForm()}else{S.sheet="";document.getElementById("modal").innerHTML="";render()}}
   else if(a==="del"){
-    if(!S.delArm){readForm();S.delArm=true;drawForm();return}
-    var did=S.draft.id;
-    var r=await write("deleteExpense",{id:did},function(){S.ex=S.ex.filter(function(x){return x.id!==did})});
-    if(!r.ok){S.ferr=r.err;S.delArm=false;drawForm();toast(r.err);return}
-    closeForm();
+    readForm();var did=S.draft.id,dt=S.draft.title||"ten wpis";
+    ask("Usunąć ten wpis?",dt+" – trafi do Kosza w Arkuszu.",async function(){
+      var r=await write("deleteExpense",{id:did},function(){S.ex=S.ex.filter(function(x){return x.id!==did})});
+      if(!r.ok){S.ferr=r.err;drawForm();toast(r.err);return}
+      closeForm();
+    });
   }
+  else if(a==="no"){askClose()}
+  else if(a==="yes"){var f=ASK;askClose();if(f)f()}
   else if(a==="addidea"){
     var n=document.getElementById("ni");if(!n||!n.value.trim())return;
     var idea={id:newId(),text:n.value.trim(),comment:"",done:false,ts:Date.now()};n.value="";
     write("addIdea",{idea:idea},function(){S.ideas=S.ideas.concat([idea])}).then(function(r){if(!r.ok)toast(r.err)});
   }
   else if(a==="di"){
-    write("deleteIdea",{id:v},function(){S.ideas=S.ideas.filter(function(x){return x.id!==v})}).then(function(r){if(!r.ok)toast(r.err)});
+    var it=S.ideas.filter(function(x){return x.id===v})[0];
+    ask("Usunąć ten pomysł?",it?it.text:"",function(){write("deleteIdea",{id:v},function(){S.ideas=S.ideas.filter(function(x){return x.id!==v})}).then(function(r){if(!r.ok)toast(r.err)})});
   }
   else if(a==="dg"){
-    if(S.dgArm!==v){S.dgArm=v;render();return}
-    S.dgArm="";
-    write("deleteGallery",{id:v},function(){S.gal=S.gal.filter(function(x){return x.id!==v})}).then(function(r){if(!r.ok)toast(r.err)});
+    var gi=S.gal.filter(function(x){return x.id===v})[0];
+    ask("Usunąć to zdjęcie?",gi?gi.title:"",function(){write("deleteGallery",{id:v},function(){S.gal=S.gal.filter(function(x){return x.id!==v})}).then(function(r){if(!r.ok)toast(r.err)})});
   }
 });
 document.addEventListener("change",async function(ev){
